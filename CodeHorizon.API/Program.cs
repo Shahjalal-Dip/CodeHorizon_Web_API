@@ -1,4 +1,7 @@
+using CodeHorizon.Application.Interfaces;
+using CodeHorizon.Application.Services;
 using CodeHorizon.Infrastructure.Data;
+using CodeHorizon.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -20,6 +23,9 @@ builder.Services.AddDbContext<CodeHorizonDbContext>(options =>
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("DefaultConnection")
         ));
+
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 // Add Authentication
 var jwtKey = Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key not configured"));
