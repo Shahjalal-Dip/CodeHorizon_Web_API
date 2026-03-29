@@ -1,0 +1,6 @@
+@CodeHorizon.API_HostAddress = http://localhost:5220
+
+GET {{CodeHorizon.API_HostAddress}}/api/Health/
+Accept: application/json
+
+###
