@@ -50,6 +50,7 @@ namespace CodeHorizon.Application.Services
             };
 
             await _userRepository.CreateAsync(user);
+            await _userRepository.SaveChangesAsync();
 
             // Generate token
             return GenerateToken(user);
@@ -86,7 +87,7 @@ namespace CodeHorizon.Application.Services
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key not configured"));
 
-            var claims = new List<Claim>()
+            var claims = new[]
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Email, user.Email),

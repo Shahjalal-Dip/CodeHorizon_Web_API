@@ -13,5 +13,6 @@ namespace CodeHorizon.Application.Interfaces
         Task<bool> UsernameExistsAsync(string username);
         Task<User> CreateAsync(User user);
         Task UpdateAsync(User user);
+        Task<bool> SaveChangesAsync();
     }
 }

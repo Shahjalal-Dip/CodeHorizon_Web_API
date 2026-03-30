@@ -25,7 +25,10 @@ builder.Services.AddDbContext<CodeHorizonDbContext>(options =>
         ));
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<ISnippetRepository, SnippetRepository>();
+builder.Services.AddScoped<ITagRepository, TagRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ISnippetService, SnippetService>();
 
 // Add Authentication
 var jwtKey = Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key not configured"));
