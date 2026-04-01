@@ -98,19 +98,17 @@ namespace CodeHorizon.Infrastructure.Repositories
             return snippet;
         }
 
-        public Task UpdateAsync(Snippet snippet)
+        public async Task UpdateAsync(Snippet snippet)
         {
             snippet.UpdatedAt = DateTime.UtcNow;
             _context.Snippets.Update(snippet);
-
-            return Task.CompletedTask;
+            await _context.SaveChangesAsync();
         }
 
-        public Task DeleteAsync(Snippet snippet)
+        public async Task DeleteAsync(Snippet snippet)
         {
             _context.Snippets.Remove(snippet);
-            _context.SaveChangesAsync();
-            return Task.CompletedTask;
+            await _context.SaveChangesAsync();
         }
 
         public async Task<bool> ExistsAsync(Guid id)
