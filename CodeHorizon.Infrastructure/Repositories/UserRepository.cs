@@ -63,5 +63,38 @@ namespace CodeHorizon.Infrastructure.Repositories
         {
             return await _context.SaveChangesAsync() > 0;
         }
+
+        public async Task<int> GetUserSnippetsCountAsync(Guid userId)
+        {
+            return await _context.Snippets
+                .CountAsync(s=>s.AuthorId == userId);
+        }
+
+        public async Task<int> GetUserBookmarksCountAsync(Guid userId)
+        {
+            return await _context.Bookmarks
+                .CountAsync(b => b.UserId == userId);
+        }
+
+        public async Task<User?> GetByUsernameWithDetailsAsync(string username)
+        {
+            return await _context.Users
+                .Where(u => u.Username == username)
+                .Select(u => new User
+                {
+                    Id = u.Id,
+                    Username = u.Username,
+                    Email = u.Email,
+                    FullName = u.FullName,
+                    Bio = u.Bio,
+                    ProfilePictureUrl = u.ProfilePictureUrl,
+                    CreatedAt = u.CreatedAt,
+                    IsActive = u.IsActive,
+                    Snippets = u.Snippets.Take(5).ToList(),
+                    Bookmarks = u.Bookmarks.Take(5).ToList()
+
+                })
+                .FirstOrDefaultAsync();
+        }
     }
 }

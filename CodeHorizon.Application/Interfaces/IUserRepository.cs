@@ -14,5 +14,8 @@ namespace CodeHorizon.Application.Interfaces
         Task<User> CreateAsync(User user);
         Task UpdateAsync(User user);
         Task<bool> SaveChangesAsync();
+        Task<int> GetUserSnippetsCountAsync(Guid userId);
+        Task<int> GetUserBookmarksCountAsync(Guid userId);
+        Task<User?> GetByUsernameWithDetailsAsync(string username);
     }
 }

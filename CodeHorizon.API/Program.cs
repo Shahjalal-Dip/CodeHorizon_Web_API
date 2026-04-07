@@ -26,14 +26,13 @@ builder.Services.AddDbContext<CodeHorizonDbContext>(options =>
 
 
 builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IUserRepository, UserRepository>();
-
 builder.Services.AddScoped<ISnippetService, SnippetService>();
-builder.Services.AddScoped<ISnippetRepository, SnippetRepository>();
-
-builder.Services.AddScoped<ITagRepository, TagRepository>();
-
 builder.Services.AddScoped<IBookmarkService, BookmarkService>();
+builder.Services.AddScoped<IUserService, UserService>();
+
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<ISnippetRepository, SnippetRepository>();
+builder.Services.AddScoped<ITagRepository, TagRepository>();
 builder.Services.AddScoped<IBookmarkRepository, BookmarkRepository>();
 
 // Add Authentication
