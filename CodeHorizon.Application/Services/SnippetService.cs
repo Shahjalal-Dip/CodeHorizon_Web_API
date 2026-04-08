@@ -44,10 +44,10 @@ namespace CodeHorizon.Application.Services
             return MapToResponseDto(snippet, currentUserId);
         }
 
-        public async Task<PagedResultDto<SnippetResponseDto>> GetAllAsync(int page, int pageSize, string? language, string? search, Guid? currentUserId)
+        public async Task<PagedResultDto<SnippetResponseDto>> GetAllFilteredAsync(SnippetFilterDto filter, int page, int pageSize, Guid? currentUserId)
         {
-            var snippets = await _snippetRepository.GetAllAsync(page, pageSize, language, search);
-            var totalCount = await _snippetRepository.GetTotalCountAsync(language, search);
+            var snippets = await _snippetRepository.GetAllFilteredAsync(filter, page, pageSize);
+            var totalCount = await _snippetRepository.GetTotalCountFilteredAsync(filter);
 
             var data = snippets.Select(s => MapToResponseDto(s, currentUserId)).ToList();
 

@@ -1,4 +1,5 @@
-﻿using CodeHorizon.Core.Entities;
+﻿using CodeHorizon.Application.DTOs.Snippet;
+using CodeHorizon.Core.Entities;
 
 namespace CodeHorizon.Application.Interfaces
 {
@@ -13,5 +14,7 @@ namespace CodeHorizon.Application.Interfaces
         Task DeleteAsync(Snippet snippet);
         Task<bool> ExistsAsync(Guid id);
         Task IncrementViewCountAsync(Guid id);
+        Task<IEnumerable<Snippet>> GetAllFilteredAsync(SnippetFilterDto filterDto, int page, int pageSize);
+        Task<int> GetTotalCountFilteredAsync(SnippetFilterDto filterDto);
     }
 }

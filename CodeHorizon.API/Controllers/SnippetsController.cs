@@ -24,10 +24,53 @@ namespace CodeHorizon.API.Controllers
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10,
             [FromQuery] string? language = null,
-            [FromQuery] string? search = null)
+            [FromQuery] string? search = null,
+            [FromQuery] string? tag = null,
+            [FromQuery] string? sortBy = "created",
+            [FromQuery] string? sortOrder = "desc",
+            [FromQuery] DateTime? fromDate = null,
+            [FromQuery] DateTime? toDate = null) 
         {
             var userId = GetCurrentUserId();
-            var result = await _snippetService.GetAllAsync(page, pageSize, language, search, userId);
+            
+            var filter = new SnippetFilterDto
+            {
+                Language = language,
+                Search = search,
+                Tag = tag,
+                SortBy = sortBy,
+                SortOrder = sortOrder,
+                FromDate = fromDate,
+                ToDate = toDate,
+                IsPublic = true, // Only public snippets for unauthenticated users
+            };
+
+            var result = await _snippetService.GetAllFilteredAsync(filter, page, pageSize, userId);
+            return Ok(result);
+        }
+
+        [HttpGet("my-snippets")]
+        [Authorize]
+        public async Task<IActionResult> GetMySnippets(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? language = null,
+            [FromQuery] string? search = null)
+
+        {
+            var userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized();
+            }
+            var filter = new SnippetFilterDto
+            {
+                Language = language,
+                Search = search,
+                AuthorId = userId.Value,
+                IsPublic = null // Show both public and private for own snippets
+            };
+            var result = await _snippetService.GetAllFilteredAsync(filter, page, pageSize, userId);
             return Ok(result);
         }
 
