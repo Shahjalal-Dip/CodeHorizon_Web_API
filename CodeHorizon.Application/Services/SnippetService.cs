@@ -5,6 +5,7 @@ using CodeHorizon.Core.Entities;
 using CodeHorizon.Application.DTOs;
 using CodeHorizon.Application.DTOs.Snippet;
 using CodeHorizon.Application.Interfaces;
+using CodeHorizon.Core.Exceptions;
 
 namespace CodeHorizon.Application.Services
 {
@@ -30,12 +31,14 @@ namespace CodeHorizon.Application.Services
 
             if (snippet == null)
             {
-                throw new Exception("Snippet not found");
+                //throw new Exception("Snippet not found");
+                throw new NotFoundException("Snippet", id.ToString());
             }
 
             if (!snippet.IsPublic && (currentUserId == null || snippet.AuthorId != currentUserId))
             {
-                throw new Exception("Access denied");
+                //throw new Exception("Access denied");
+                throw new ForbiddenException("You don't have permission");
             }
 
             // Increment view count
@@ -65,7 +68,8 @@ namespace CodeHorizon.Application.Services
             var user = await _userRepository.GetByIdAsync(authorId);
             if (user == null)
             {
-                throw new Exception("User not found");
+                //throw new Exception("User not found");
+                throw new NotFoundException("User Not found", authorId.ToString());
             }
 
             // Create or get tags
@@ -108,12 +112,14 @@ namespace CodeHorizon.Application.Services
 
             if (snippet == null)
             {
-                throw new Exception("Snippet not found");
+                //throw new Exception("Snippet not found");
+                throw new NotFoundException("Snippet", id.ToString());
             }
 
             if (snippet.AuthorId != userId)
             {
-                throw new Exception("You don't have permission to update this snippet");
+                //throw new Exception("You don't have permission to update this snippet");
+                throw new ForbiddenException("You don't have permission to modify this snippet");
             }
 
             // Update properties
@@ -150,12 +156,14 @@ namespace CodeHorizon.Application.Services
 
             if (snippet == null)
             {
-                throw new Exception("Snippet not found");
+                //throw new Exception("Snippet not found");
+                throw new NotFoundException("Snippet", id.ToString());
             }
 
             if (snippet.AuthorId != userId)
             {
-                throw new Exception("You don't have permission to delete this snippet");
+                //throw new Exception("You don't have permission to delete this snippet");
+                throw new ForbiddenException("You don't have permission to delete this snippet");
             }
 
             await _snippetRepository.DeleteAsync(snippet);
@@ -180,7 +188,7 @@ namespace CodeHorizon.Application.Services
                 AuthorUsername = snippet.Author?.Username ?? string.Empty,
                 AuthorFullName = snippet.Author?.FullName ?? string.Empty,
                 Tags = snippet.SnippetTags.Select(st => st.Tag.Name).ToList(),
-                IsBookmarkedByCurrentUser = false // We'll implement bookmarks later
+                IsBookmarkedByCurrentUser = false 
             };
         }
     }

@@ -1,13 +1,14 @@
-﻿using System;
+﻿using CodeHorizon.Application.DTOs.Auth;
+using CodeHorizon.Application.Interfaces;
+using CodeHorizon.Core.Entities;
+using CodeHorizon.Core.Exceptions;
+using Microsoft.Extensions.Configuration;
+using Microsoft.IdentityModel.Tokens;
+using System;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Configuration;
-using Microsoft.IdentityModel.Tokens;
-using CodeHorizon.Core.Entities;
-using CodeHorizon.Application.DTOs.Auth;
-using CodeHorizon.Application.Interfaces;
 
 namespace CodeHorizon.Application.Services
 {
@@ -24,16 +25,18 @@ namespace CodeHorizon.Application.Services
 
         public async Task<AuthResponseDto> RegisterAsync(RegisterDto registerDto)
         {
-            // Check if email already exists
+           
             if (await _userRepository.EmailExistsAsync(registerDto.Email))
             {
-                throw new Exception("Email already registered");
+                //throw new Exception("Email already registered");
+                throw new ConflictException("Email already registered");
             }
 
-            // Check if username already exists
+           
             if (await _userRepository.UsernameExistsAsync(registerDto.Username))
             {
-                throw new Exception("Username already taken");
+                //throw new Exception("Username already taken");
+                throw new ConflictException("Username already taken");
             }
 
             // Create password hash (in production, use BCrypt or similar)
@@ -52,24 +55,23 @@ namespace CodeHorizon.Application.Services
             await _userRepository.CreateAsync(user);
             await _userRepository.SaveChangesAsync();
 
-            // Generate token
             return GenerateToken(user);
         }
 
         public async Task<AuthResponseDto> LoginAsync(LoginDto loginDto)
         {
-            // Get user by email
             var user = await _userRepository.GetByEmailAsync(loginDto.Email);
 
             if (user == null)
             {
-                throw new Exception("Invalid credentials");
+                //throw new Exception("Invalid credentials");
+                throw new UnauthorizedException("Invalid email or password");
             }
 
             // Verify password
             if (!BCrypt.Net.BCrypt.Verify(loginDto.Password, user.PasswordHash))
             {
-                throw new Exception("Invalid credentials");
+                throw new UnauthorizedException("Invalid email or password");
             }
 
             // Check if user is active

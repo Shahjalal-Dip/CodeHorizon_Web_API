@@ -2,6 +2,7 @@
 using CodeHorizon.Application.DTOs.Bookmark;
 using CodeHorizon.Application.Interfaces;
 using CodeHorizon.Core.Entities;
+using CodeHorizon.Core.Exceptions;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -21,11 +22,11 @@ namespace CodeHorizon.Application.Services
         {
             var snippet = await _snippetRepository.GetByIdAsync(snippetId);
             if (snippet == null)
-                throw new Exception("Snippet not found");
+                throw new NotFoundException("Snippet", snippetId.ToString());
 
             var existingBookmark = await _bookmarkRepository.GetByUserAndSnippetAsync(userId, snippetId);
             if (existingBookmark != null)
-                throw new Exception("Snippet already bookmarked");
+                throw new ConflictException("Snippet already bookmarked");
 
             var bookmark = new Bookmark
             {
@@ -87,7 +88,7 @@ namespace CodeHorizon.Application.Services
         {
             var bookmark = await _bookmarkRepository.GetByUserAndSnippetAsync(userId, snippetId);
             if (bookmark == null)
-                throw new Exception("Bookmark not found");
+                throw new NotFoundException("Bookmark", $"{userId}-{snippetId}");
 
             await _bookmarkRepository.DeleteAsync(bookmark);
 

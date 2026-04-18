@@ -1,3 +1,4 @@
+using CodeHorizon.API.Middleware;
 using CodeHorizon.Application.Interfaces;
 using CodeHorizon.Application.Services;
 using CodeHorizon.Infrastructure.Data;
@@ -62,6 +63,8 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
     app.MapScalarApiReference();
 }
+
+app.UseMiddleware<GlobalExceptionMiddleware>();
 
 app.UseHttpsRedirection();
 app.UseAuthentication();

@@ -1,5 +1,7 @@
 ﻿using CodeHorizon.Application.DTOs.User;
 using CodeHorizon.Application.Interfaces;
+using CodeHorizon.Core.Entities;
+using CodeHorizon.Core.Exceptions;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -21,7 +23,7 @@ namespace CodeHorizon.Application.Services
 
             if(user == null)
             {
-                throw new Exception("User not found");
+                throw new NotFoundException("User not Found", userId.ToString());
             }
 
             if (!BCrypt.Net.BCrypt.Verify(changePasswordDto.CurrentPassword, user.PasswordHash))
@@ -47,7 +49,8 @@ namespace CodeHorizon.Application.Services
 
             if (user == null)
             {
-                throw new Exception("User not found");
+                //throw new Exception("User not found");
+                throw new NotFoundException("User not Found", userId.ToString());
             }
 
             var snippetsCount = await _userRepository.GetUserSnippetsCountAsync(userId);
@@ -72,7 +75,8 @@ namespace CodeHorizon.Application.Services
             var user = await _userRepository.GetByUsernameWithDetailsAsync(username);
             if(user == null)
             {
-                throw new Exception("User not found");
+                //throw new Exception("User not found");
+                throw new NotFoundException("User not Found", username);
             }
 
             return new UserProfileDto
@@ -95,7 +99,7 @@ namespace CodeHorizon.Application.Services
 
             if (user == null)
             {
-                throw new Exception("User not found");
+                throw new NotFoundException("User not Found", userId.ToString());
             }
 
             // Update only provided fields
