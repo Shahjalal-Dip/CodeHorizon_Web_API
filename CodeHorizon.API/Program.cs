@@ -3,6 +3,7 @@ using CodeHorizon.Application.Interfaces;
 using CodeHorizon.Application.Services;
 using CodeHorizon.Infrastructure.Data;
 using CodeHorizon.Infrastructure.Repositories;
+using CodeHorizon.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -25,11 +26,18 @@ builder.Services.AddDbContext<CodeHorizonDbContext>(options =>
         builder.Configuration.GetConnectionString("DefaultConnection")
         ));
 
+//Add Redis caching
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = builder.Configuration.GetConnectionString("Redis");
+    options.InstanceName = "CodeHorizon_";
+});
 
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ISnippetService, SnippetService>();
 builder.Services.AddScoped<IBookmarkService, BookmarkService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<ICacheService, RedisCacheService>();
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ISnippetRepository, SnippetRepository>();

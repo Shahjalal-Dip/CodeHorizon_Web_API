@@ -6,6 +6,7 @@ using CodeHorizon.Application.DTOs;
 using CodeHorizon.Application.DTOs.Snippet;
 using CodeHorizon.Application.Interfaces;
 using CodeHorizon.Core.Exceptions;
+using CodeHorizon.Application.Helpers;
 
 namespace CodeHorizon.Application.Services
 {
@@ -14,19 +15,29 @@ namespace CodeHorizon.Application.Services
         private readonly ISnippetRepository _snippetRepository;
         private readonly ITagRepository _tagRepository;
         private readonly IUserRepository _userRepository;
+        private readonly ICacheService _cacheService;
 
         public SnippetService(
             ISnippetRepository snippetRepository,
             ITagRepository tagRepository,
-            IUserRepository userRepository)
+            IUserRepository userRepository,
+            ICacheService cacheService)
         {
             _snippetRepository = snippetRepository;
             _tagRepository = tagRepository;
             _userRepository = userRepository;
+            _cacheService = cacheService;
         }
 
         public async Task<SnippetResponseDto> GetByIdAsync(Guid id, Guid? currentUserId)
         {
+            var cacheKey = CacheKeys.SnippetKey(id);
+            var cachedSnippet = await _cacheService.GetAsync<SnippetResponseDto>(cacheKey);
+            if (cachedSnippet != null)
+            {
+                return cachedSnippet;
+            }
+
             var snippet = await _snippetRepository.GetByIdAsync(id);
 
             if (snippet == null)
@@ -38,13 +49,20 @@ namespace CodeHorizon.Application.Services
             if (!snippet.IsPublic && (currentUserId == null || snippet.AuthorId != currentUserId))
             {
                 //throw new Exception("Access denied");
-                throw new ForbiddenException("You don't have permission");
+                throw new ForbiddenException("You don't have access to this snippet");
             }
 
             // Increment view count
-            await _snippetRepository.IncrementViewCountAsync(id);
+            // await _snippetRepository.IncrementViewCountAsync(id);
 
-            return MapToResponseDto(snippet, currentUserId);
+            var result = MapToResponseDto(snippet, currentUserId);
+
+            await _cacheService.SetAsync(cacheKey, result, TimeSpan.FromMinutes(10));
+
+            // Increment view count (don't wait for this)
+            _ = Task.Run(() => _snippetRepository.IncrementViewCountAsync(id));
+
+            return result;
         }
 
         public async Task<PagedResultDto<SnippetResponseDto>> GetAllFilteredAsync(SnippetFilterDto filter, int page, int pageSize, Guid? currentUserId)
@@ -103,6 +121,9 @@ namespace CodeHorizon.Application.Services
 
             await _snippetRepository.UpdateAsync(snippet);
 
+            //Invalidate snippet list cache
+            await _cacheService.RemoveByPatternAsync("snippets_*");
+
             return await GetByIdAsync(snippet.Id, authorId);
         }
 
@@ -147,6 +168,10 @@ namespace CodeHorizon.Application.Services
 
             await _snippetRepository.UpdateAsync(snippet);
 
+            // Invalidate specific snippet cache
+            await _cacheService.RemoveAsync(CacheKeys.SnippetKey(id));
+            await _cacheService.RemoveByPatternAsync("snippets_*");
+
             return await GetByIdAsync(snippet.Id, userId);
         }
 
@@ -165,6 +190,9 @@ namespace CodeHorizon.Application.Services
                 //throw new Exception("You don't have permission to delete this snippet");
                 throw new ForbiddenException("You don't have permission to delete this snippet");
             }
+
+            await _cacheService.RemoveAsync(CacheKeys.SnippetKey(id));
+            await _cacheService.RemoveByPatternAsync("snippets_*");
 
             await _snippetRepository.DeleteAsync(snippet);
         }
