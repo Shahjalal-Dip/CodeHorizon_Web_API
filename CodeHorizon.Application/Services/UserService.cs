@@ -1,4 +1,5 @@
 ﻿using CodeHorizon.Application.DTOs.User;
+using CodeHorizon.Application.Helpers;
 using CodeHorizon.Application.Interfaces;
 using CodeHorizon.Core.Entities;
 using CodeHorizon.Core.Exceptions;
@@ -12,10 +13,12 @@ namespace CodeHorizon.Application.Services
     {
         private readonly IUserRepository _userRepository;
         private readonly IBookmarkRepository _bookmarkRepository;
-        public UserService(IUserRepository userRepository, IBookmarkRepository bookmarkRepository) 
+        private readonly ICacheService _cacheService;
+        public UserService(IUserRepository userRepository, IBookmarkRepository bookmarkRepository, ICacheService cacheService) 
         {
             _userRepository = userRepository;
             _bookmarkRepository = bookmarkRepository;
+            _cacheService = cacheService;
         }
         public async Task ChangePasswordAsync(Guid userId, ChangePasswordDto changePasswordDto)
         {
@@ -45,6 +48,13 @@ namespace CodeHorizon.Application.Services
 
         public async Task<UserProfileDto> GetProfileAsync(Guid userId)
         {
+            var cachekey = CacheKeys.UserProfileKey(userId);
+            var cachedProfile = await _cacheService.GetAsync<UserProfileDto>(cachekey);
+            if (cachedProfile != null)
+            {
+                return cachedProfile;
+            }
+
             var user = await _userRepository.GetByIdAsync(userId);
 
             if (user == null)
@@ -56,7 +66,7 @@ namespace CodeHorizon.Application.Services
             var snippetsCount = await _userRepository.GetUserSnippetsCountAsync(userId);
             var bookmarksCount = await _bookmarkRepository.GetUserBookmarksCountAsync(userId);
 
-            return new UserProfileDto
+            var userProfile = new UserProfileDto
             {
                 Id = user.Id,
                 Username = user.Username,
@@ -68,6 +78,10 @@ namespace CodeHorizon.Application.Services
                 SnippetsCount = snippetsCount,
                 BookmarksCount = bookmarksCount
             };
+
+            await _cacheService.SetAsync(cachekey, userProfile, TimeSpan.FromMinutes(30));
+
+            return userProfile;
         }
 
         public async Task<UserProfileDto> GetProfileByUsernameAsync(string username)
@@ -95,6 +109,10 @@ namespace CodeHorizon.Application.Services
 
         public async Task<UserProfileDto> UpdateProfileAsync(Guid userId, UpdateProfileDto updateDto)
         {
+            var cachekey = CacheKeys.UserProfileKey(userId);
+            var cachedProfile = await _cacheService.GetAsync<UserProfileDto>(cachekey);
+
+
             var user = await _userRepository.GetByIdAsync(userId);
 
             if (user == null)
@@ -115,10 +133,20 @@ namespace CodeHorizon.Application.Services
             user.UpdatedAt = DateTime.UtcNow;
 
             await _userRepository.UpdateAsync(user);
+
+
+            if (cachedProfile != null)
+            {
+                cachedProfile.Bio = updateDto.Bio ?? cachedProfile.Bio;
+                cachedProfile.ProfilePictureUrl = updateDto.ProfilePictureUrl ?? cachedProfile.ProfilePictureUrl;
+                cachedProfile.FullName = updateDto.FullName ?? cachedProfile.FullName;
+
+                await _cacheService.SetAsync(cachekey, cachedProfile, TimeSpan.FromMinutes(30));
+            }
+
             await _userRepository.SaveChangesAsync();
 
             return await GetProfileAsync(userId);
-
         }
     }
 }

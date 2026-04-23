@@ -1,5 +1,6 @@
 ﻿using CodeHorizon.Application.DTOs;
 using CodeHorizon.Application.DTOs.Bookmark;
+using CodeHorizon.Application.Helpers;
 using CodeHorizon.Application.Interfaces;
 using CodeHorizon.Core.Entities;
 using CodeHorizon.Core.Exceptions;
@@ -13,10 +14,12 @@ namespace CodeHorizon.Application.Services
     {
         private readonly IBookmarkRepository _bookmarkRepository;
         private readonly ISnippetRepository _snippetRepository;
-        public BookmarkService(IBookmarkRepository bookmarkRepository, ISnippetRepository snippetRepository)
+        private readonly ICacheService _cacheService;
+        public BookmarkService(IBookmarkRepository bookmarkRepository, ISnippetRepository snippetRepository, ICacheService cacheService)
         {
             _bookmarkRepository = bookmarkRepository;
             _snippetRepository = snippetRepository;
+            _cacheService = cacheService;
         }
         public async Task<BookmarkResponseDto> AddBookmarkAsync(Guid userId, Guid snippetId)
         {
@@ -24,10 +27,22 @@ namespace CodeHorizon.Application.Services
             if (snippet == null)
                 throw new NotFoundException("Snippet", snippetId.ToString());
 
-            var existingBookmark = await _bookmarkRepository.GetByUserAndSnippetAsync(userId, snippetId);
-            if (existingBookmark != null)
-                throw new ConflictException("Snippet already bookmarked");
+            var cacheKey = CacheKeys.SnippetBookmarkStatusKey(userId, snippetId);
+            var cachedStatus = await _cacheService.GetAsync<string>(cacheKey);
 
+            if (cachedStatus == null)
+            {
+                var isBookmarked = await _bookmarkRepository.IsBookmarkedAsync(userId, snippetId);
+                if (isBookmarked)
+                    throw new ConflictException("Snippet is already bookmarked by the user.");
+                await _cacheService.SetAsync(cacheKey, "true");
+
+            }
+            else if (bool.Parse(cachedStatus))
+            {
+                throw new ConflictException("Snippet is already bookmarked by the user.");
+            }
+            
             var bookmark = new Bookmark
             {
                 UserId = userId,
@@ -81,11 +96,27 @@ namespace CodeHorizon.Application.Services
 
         public async Task<bool> IsBookmarkedAsync(Guid userId, Guid snippetId)
         {
-            return await _bookmarkRepository.IsBookmarkedAsync(userId, snippetId);
+            var cacheKey = CacheKeys.SnippetBookmarkStatusKey(userId, snippetId);
+            var cachedStatus = await _cacheService.GetAsync<string>(cacheKey);
+
+            if(cachedStatus != null)
+            {
+                return bool.Parse(cachedStatus);
+            }
+            var isBookmarked = await _bookmarkRepository.IsBookmarkedAsync(userId, snippetId);
+            await _cacheService.SetAsync(cacheKey, isBookmarked.ToString());
+            return isBookmarked;
         }
 
         public async Task RemoveBookmarkAsync(Guid userId, Guid snippetId)
         {
+            var cacheKey = CacheKeys.SnippetBookmarkStatusKey(userId, snippetId);
+            var cachedStatus = await _cacheService.GetAsync<string>(cacheKey);
+
+            if(cachedStatus != null) {
+                await _cacheService.RemoveAsync(cacheKey);
+            }
+
             var bookmark = await _bookmarkRepository.GetByUserAndSnippetAsync(userId, snippetId);
             if (bookmark == null)
                 throw new NotFoundException("Bookmark", $"{userId}-{snippetId}");
