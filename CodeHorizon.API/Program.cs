@@ -1,9 +1,14 @@
 using CodeHorizon.API.Middleware;
+using CodeHorizon.API.Security;
 using CodeHorizon.Application.Interfaces;
+using CodeHorizon.Application.Jobs;
 using CodeHorizon.Application.Services;
 using CodeHorizon.Infrastructure.Data;
+using CodeHorizon.Infrastructure.Jobs;
 using CodeHorizon.Infrastructure.Repositories;
 using CodeHorizon.Infrastructure.Services;
+using Hangfire;
+using Hangfire.SqlServer;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -33,6 +38,26 @@ builder.Services.AddStackExchangeRedisCache(options =>
     options.InstanceName = "CodeHorizon_";
 });
 
+//Add Hangfire Services
+builder.Services.AddHangfire(configuration => configuration
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_170)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UseSqlServerStorage(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        new SqlServerStorageOptions
+        {
+            QueuePollInterval = TimeSpan.FromSeconds(5),
+            SchemaName = "Hangfire"
+        }
+    ));
+
+builder.Services.AddHangfireServer(options =>
+{
+    options.Queues = new[] { "default", "notifications", "analytics" };
+    options.WorkerCount = Environment.ProcessorCount * 2;
+});
+
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ISnippetService, SnippetService>();
 builder.Services.AddScoped<IBookmarkService, BookmarkService>();
@@ -43,6 +68,8 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ISnippetRepository, SnippetRepository>();
 builder.Services.AddScoped<ITagRepository, TagRepository>();
 builder.Services.AddScoped<IBookmarkRepository, BookmarkRepository>();
+
+builder.Services.AddScoped<ISnippetJobs, SnippetJobs>();
 
 // Add Authentication
 var jwtKey = Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key not configured"));
@@ -77,6 +104,12 @@ app.UseMiddleware<GlobalExceptionMiddleware>();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
+//add after app.UseAuthorization()
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = new[] { new HangfireAuthorizationFilter() }
+});
+
 app.MapControllers();
 
 

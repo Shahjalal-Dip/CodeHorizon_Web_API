@@ -1,12 +1,14 @@
-﻿using System;
+﻿using CodeHorizon.Application.DTOs;
+using CodeHorizon.Application.DTOs.Snippet;
+using CodeHorizon.Application.Helpers;
+using CodeHorizon.Application.Interfaces;
+using CodeHorizon.Application.Jobs;
+using CodeHorizon.Core.Entities;
+using CodeHorizon.Core.Exceptions;
+using Hangfire;
+using System;
 using System.Linq;
 using System.Threading.Tasks;
-using CodeHorizon.Core.Entities;
-using CodeHorizon.Application.DTOs;
-using CodeHorizon.Application.DTOs.Snippet;
-using CodeHorizon.Application.Interfaces;
-using CodeHorizon.Core.Exceptions;
-using CodeHorizon.Application.Helpers;
 
 namespace CodeHorizon.Application.Services
 {
@@ -16,17 +18,23 @@ namespace CodeHorizon.Application.Services
         private readonly ITagRepository _tagRepository;
         private readonly IUserRepository _userRepository;
         private readonly ICacheService _cacheService;
+        private readonly IBackgroundJobClient _backgroundJobClient;
+        private readonly ISnippetJobs _snippetJobs;
 
         public SnippetService(
             ISnippetRepository snippetRepository,
             ITagRepository tagRepository,
             IUserRepository userRepository,
-            ICacheService cacheService)
+            ICacheService cacheService,
+            IBackgroundJobClient backgroundJobClient,
+            ISnippetJobs snippetJobs)
         {
             _snippetRepository = snippetRepository;
             _tagRepository = tagRepository;
             _userRepository = userRepository;
             _cacheService = cacheService;
+            _backgroundJobClient = backgroundJobClient;
+            _snippetJobs = snippetJobs;
         }
 
         public async Task<SnippetResponseDto> GetByIdAsync(Guid id, Guid? currentUserId)
@@ -120,6 +128,16 @@ namespace CodeHorizon.Application.Services
             }
 
             await _snippetRepository.UpdateAsync(snippet);
+
+            // Fire and forget background jobs
+            _backgroundJobClient.Enqueue(() => _snippetJobs.GenerateSnippetPreviewAsync(snippet.Id));
+            _backgroundJobClient.Enqueue(() => _snippetJobs.SendSnippetCreatedNotificationAsync(snippet.Id, authorId));
+
+            // Schedule recurring job (if needed)
+            RecurringJob.AddOrUpdate<ISnippetJobs>(
+                "cleanup-old-snippets",
+                job => job.CleanupOldSnippetsAsync(),
+                Cron.Daily);
 
             //Invalidate snippet list cache
             await _cacheService.RemoveByPatternAsync("snippets_*");
