@@ -10,6 +10,7 @@ using Hangfire;
 using Moq;
 using System;
 using System.Collections.Generic;
+using System.Linq.Expressions;
 using System.Text;
 
 namespace CodeHorizon.Tests.UnitTests.Services
@@ -33,7 +34,6 @@ namespace CodeHorizon.Tests.UnitTests.Services
             _cacheServiceMock = new Mock<ICacheService>();
             _backgroundJobClientMock = new Mock<IBackgroundJobClient>();
             _snippetJobsMock = new Mock<ISnippetJobs>();
-
 
             _snippetService = new SnippetService(
                 _snippetRepositoryMock.Object,
@@ -131,7 +131,11 @@ namespace CodeHorizon.Tests.UnitTests.Services
 
             _snippetRepositoryMock
                 .Setup(x => x.CreateAsync(It.IsAny<Snippet>()))
-                .ReturnsAsync((Snippet s) => s);
+                .ReturnsAsync((Snippet s) =>
+                {
+                    s.Id = Guid.NewGuid();
+                    return s;
+                });
 
             // Act
             var result = await _snippetService.CreateAsync(createDto, author.Id);
@@ -142,7 +146,7 @@ namespace CodeHorizon.Tests.UnitTests.Services
             result.Language.Should().Be(createDto.Language);
 
             _snippetRepositoryMock.Verify(x => x.CreateAsync(It.IsAny<Snippet>()), Times.Once);
-
+            _backgroundJobClientMock.Verify(x => x.Enqueue(It.IsAny<Expression<Action<ISnippetJobs>>>()), Times.Once);
         }
 
         [Fact]

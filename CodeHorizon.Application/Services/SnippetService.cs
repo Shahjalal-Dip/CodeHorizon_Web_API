@@ -33,8 +33,8 @@ namespace CodeHorizon.Application.Services
             _tagRepository = tagRepository;
             _userRepository = userRepository;
             _cacheService = cacheService;
-            _backgroundJobClient = backgroundJobClient;
-            _snippetJobs = snippetJobs;
+            _backgroundJobClient = backgroundJobClient ?? throw new ArgumentNullException(nameof(backgroundJobClient));
+            _snippetJobs = snippetJobs ?? throw new ArgumentNullException(nameof(snippetJobs));
         }
 
         public async Task<SnippetResponseDto> GetByIdAsync(Guid id, Guid? currentUserId)
