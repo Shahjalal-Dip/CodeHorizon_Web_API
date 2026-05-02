@@ -19,6 +19,7 @@ namespace CodeHorizon.Application.Services
         private readonly IUserRepository _userRepository;
         private readonly ICacheService _cacheService;
         private readonly IBackgroundJobClient _backgroundJobClient;
+        private readonly IRecurringJobManager _recurringJobManager;
         private readonly ISnippetJobs _snippetJobs;
 
         public SnippetService(
@@ -27,6 +28,7 @@ namespace CodeHorizon.Application.Services
             IUserRepository userRepository,
             ICacheService cacheService,
             IBackgroundJobClient backgroundJobClient,
+            IRecurringJobManager recurringJobManager,
             ISnippetJobs snippetJobs)
         {
             _snippetRepository = snippetRepository;
@@ -34,6 +36,7 @@ namespace CodeHorizon.Application.Services
             _userRepository = userRepository;
             _cacheService = cacheService;
             _backgroundJobClient = backgroundJobClient ?? throw new ArgumentNullException(nameof(backgroundJobClient));
+            _recurringJobManager = recurringJobManager ?? throw new ArgumentNullException(nameof(recurringJobManager));
             _snippetJobs = snippetJobs ?? throw new ArgumentNullException(nameof(snippetJobs));
         }
 
@@ -134,7 +137,7 @@ namespace CodeHorizon.Application.Services
             _backgroundJobClient.Enqueue(() => _snippetJobs.SendSnippetCreatedNotificationAsync(snippet.Id, authorId));
 
             // Schedule recurring job (if needed)
-            RecurringJob.AddOrUpdate<ISnippetJobs>(
+            _recurringJobManager.AddOrUpdate<ISnippetJobs>(
                 "cleanup-old-snippets",
                 job => job.CleanupOldSnippetsAsync(),
                 Cron.Daily);

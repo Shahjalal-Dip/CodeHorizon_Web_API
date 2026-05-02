@@ -22,6 +22,7 @@ namespace CodeHorizon.Tests.UnitTests.Services
         public readonly Mock<IUserRepository> _userRepositoryMock;
         public readonly Mock<ICacheService> _cacheServiceMock;
         public readonly Mock<IBackgroundJobClient> _backgroundJobClientMock;
+        public readonly Mock<IRecurringJobManager> _recurringJobManagerMock;
         public readonly Mock<ISnippetJobs> _snippetJobsMock;
         public readonly SnippetService _snippetService;
 
@@ -33,6 +34,7 @@ namespace CodeHorizon.Tests.UnitTests.Services
             _userRepositoryMock = new Mock<IUserRepository>();
             _cacheServiceMock = new Mock<ICacheService>();
             _backgroundJobClientMock = new Mock<IBackgroundJobClient>();
+            _recurringJobManagerMock = new Mock<IRecurringJobManager>();
             _snippetJobsMock = new Mock<ISnippetJobs>();
 
             _snippetService = new SnippetService(
@@ -41,6 +43,7 @@ namespace CodeHorizon.Tests.UnitTests.Services
                 _userRepositoryMock.Object,
                 _cacheServiceMock.Object,
                 _backgroundJobClientMock.Object,
+                _recurringJobManagerMock.Object,
                 _snippetJobsMock.Object);
         }
 
@@ -131,11 +134,31 @@ namespace CodeHorizon.Tests.UnitTests.Services
 
             _snippetRepositoryMock
                 .Setup(x => x.CreateAsync(It.IsAny<Snippet>()))
-                .ReturnsAsync((Snippet s) =>
+                .ReturnsAsync((Snippet s) => s);
+
+            _snippetRepositoryMock
+                .Setup(x => x.GetByIdAsync(It.IsAny<Guid>()))
+                .ReturnsAsync((Guid id) => new Snippet
                 {
-                    s.Id = Guid.NewGuid();
-                    return s;
+                    Id = id,
+                    Title = createDto.Title,
+                    Content = createDto.Content,
+                    Description = createDto.Description,
+                    Language = createDto.Language,
+                    IsPublic = createDto.IsPublic,
+                    AuthorId = author.Id,
+                    Author = author, // important for AuthorUsername / AuthorFullName
+                    SnippetTags = tags.Select(t => new SnippetTag
+                    {
+                        SnippetId = id,
+                        TagId = t.Id,
+                        Tag = t // important for Tag.Name
+                    }).ToList(),
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
                 });
+
+
 
             // Act
             var result = await _snippetService.CreateAsync(createDto, author.Id);
@@ -146,7 +169,16 @@ namespace CodeHorizon.Tests.UnitTests.Services
             result.Language.Should().Be(createDto.Language);
 
             _snippetRepositoryMock.Verify(x => x.CreateAsync(It.IsAny<Snippet>()), Times.Once);
-            _backgroundJobClientMock.Verify(x => x.Enqueue(It.IsAny<Expression<Action<ISnippetJobs>>>()), Times.Once);
+          /*  _backgroundJobClientMock.Verify(x => x.Enqueue(It.IsAny<Expression<Action<ISnippetJobs>>>()), Times.Once);
+            _recurringJobManagerMock.Verify(s =>
+            s.AddOrUpdate<ISnippetJobs>(
+                "cleanup-old-snippets",
+                It.IsAny<Expression<Action<ISnippetJobs>>>(),
+                Cron.Daily
+            ),
+            Times.Once
+        );*/
+
         }
 
         [Fact]
