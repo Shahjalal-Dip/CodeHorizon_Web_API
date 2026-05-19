@@ -1,6 +1,7 @@
 <Solution>
   <Project Path="CodeHorizon.API/CodeHorizon.API.csproj" />
   <Project Path="CodeHorizon.Application/CodeHorizon.Application.csproj" Id="a237264c-ab55-4268-8c71-82aafb0a73aa" />
+  <Project Path="CodeHorizon.Blazor/CodeHorizon.Blazor.csproj" Id="51712307-ecc2-4a1c-ae47-ec4489ede6ef" />
   <Project Path="CodeHorizon.Core/CodeHorizon.Core.csproj" Id="6dda649e-fb27-43fd-95c4-eeff3f55b6f1" />
   <Project Path="CodeHorizon.Infrastructure/CodeHorizon.Infrastructure.csproj" Id="f4c34dcc-3ea5-40cd-8189-e855c460ecce" />
   <Project Path="CodeHorizon.Tests/CodeHorizon.Tests.csproj" Id="34db30d0-826a-4be9-90a0-8fb46f8f502d" />
