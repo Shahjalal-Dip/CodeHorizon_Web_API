@@ -1,39 +1,95 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">CodeHorizon.Blazor</a>
-        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-    </div>
-</div>
+﻿@inject IThemeService Theme
+@inject AuthenticationStateProvider AuthState
+@implements IDisposable
 
-<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
+<div class="nav-menu @NavCssClass">
+    <nav class="navbar navbar-expand-lg">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="/">
+                <span class="brand-icon" aria-hidden="true">{ }</span> Code Horizon
+            </a>
+            <button class="navbar-toggler" type="button" @onclick="ToggleNav" aria-controls="mainNav" aria-expanded="@_expanded" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse @(_expanded ? "show" : "")" id="mainNav">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item"><NavLink class="nav-link" href="/" Match="NavLinkMatch.All">Home</NavLink></li>
+                    <li class="nav-item"><NavLink class="nav-link" href="/browse">Browse</NavLink></li>
+                    <li class="nav-item"><NavLink class="nav-link" href="/tags">Tags</NavLink></li>
+                    <AuthorizeView>
+                        <Authorized>
+                            <li class="nav-item"><NavLink class="nav-link" href="/dashboard">Dashboard</NavLink></li>
+                            <li class="nav-item"><NavLink class="nav-link" href="/my-snippets">My Snippets</NavLink></li>
+                            <li class="nav-item"><NavLink class="nav-link" href="/bookmarks">Bookmarks</NavLink></li>
+                        </Authorized>
+                    </AuthorizeView>
+                </ul>
+                <form class="d-flex me-3" role="search" @onsubmit="Search" @onsubmit:preventDefault="true">
+                    <input class="form-control form-control-sm" type="search" placeholder="Search snippets..." aria-label="Search snippets" @bind="_searchQuery" />
+                    <button class="btn btn-sm btn-outline-primary ms-2" type="submit">Search</button>
+                </form>
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="ToggleTheme" aria-label="Toggle dark mode">
+                        @(Theme.CurrentTheme == "dark" ? "☀️" : "🌙")
+                    </button>
+                    <AuthorizeView>
+                        <Authorized>
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    @_username
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item" href="/settings">Profile settings</a></li>
+                                    <li><a class="dropdown-item" href="/snippets/create">New snippet</a></li>
+                                    <li><hr class="dropdown-divider" /></li>
+                                    <li><button class="dropdown-item" @onclick="Logout">Logout</button></li>
+                                </ul>
+                            </div>
+                        </Authorized>
+                        <NotAuthorized>
+                            <a class="btn btn-sm btn-outline-primary" href="/login">Login</a>
+                            <a class="btn btn-sm btn-primary" href="/register">Register</a>
+                        </NotAuthorized>
+                    </AuthorizeView>
+                </div>
+            </div>
         </div>
     </nav>
 </div>
 
 @code {
-    private bool collapseNavMenu = true;
+    [Parameter] public bool CollapseNav { get; set; }
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [Inject] private IAuthService Auth { get; set; } = default!;
 
-    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+    private bool _expanded;
+    private string _searchQuery = string.Empty;
+    private string _username = "Account";
 
-    private void ToggleNavMenu()
+    private string NavCssClass => CollapseNav ? "nav-collapsed" : "";
+
+    protected override async Task OnInitializedAsync()
     {
-        collapseNavMenu = !collapseNavMenu;
+        Theme.OnThemeChanged += StateHasChanged;
+        var state = await AuthState.GetAuthenticationStateAsync();
+        _username = state.User.Identity?.Name ?? state.User.FindFirst("unique_name")?.Value ?? "Account";
     }
+
+    private void ToggleNav() => _expanded = !_expanded;
+
+    private void Search()
+    {
+        if (!string.IsNullOrWhiteSpace(_searchQuery))
+            Navigation.NavigateTo($"/browse?search={Uri.EscapeDataString(_searchQuery)}");
+    }
+
+    private async Task ToggleTheme() => await Theme.ToggleThemeAsync();
+
+    private async Task Logout()
+    {
+        await Auth.LogoutAsync();
+        Navigation.NavigateTo("/");
+    }
+
+    public void Dispose() => Theme.OnThemeChanged -= StateHasChanged;
 }

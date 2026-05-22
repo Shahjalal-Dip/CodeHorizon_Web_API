@@ -1,32 +1,46 @@
-﻿@using Microsoft.AspNetCore.Components.Authorization
-@using MudBlazor
-<Router AppAssembly="@typeof(App).Assembly" NotFoundPage="typeof(Pages.NotFound)">
-    <Found Context="routeData">
-        <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
-            <NotAuthorized>
-                <MudContainer>
-                    <MudAlert Severity="Severity.Warning">
-                        You are not authorized to view this page.
-                        Please <MudLink Href="/login">login</MudLink> to continue.
-                    </MudAlert>
-                </MudContainer>
-            </NotAuthorized>
-        </AuthorizeRouteView>
-        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
-    </Found>
-    <NotFound>
-        <LayoutView Layout="@typeof(MainLayout)">
-            <MudContainer>
-                <MudAlert Severity="Severity.Error">
-                    <MudText Typo="Typo.h4">404 - Page Not Found</MudText>
-                    <MudText>The requested page could not be found.</MudText>
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               Href="/">
-                        Go to Home
-                    </MudButton>
-                </MudAlert>
-            </MudContainer>
-        </LayoutView>
-    </NotFound>
-</Router>
+﻿@using CodeHorizon.Blazor.Components.Auth
+@inject NavigationManager Navigation
+@inject IAnalyticsService Analytics
+@implements IDisposable
+
+<GlobalErrorBoundary>
+    <CascadingAuthenticationState>
+        <Router AppAssembly="@typeof(App).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+            <Found Context="routeData">
+                <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                    <NotAuthorized>
+                        @if (context.User.Identity?.IsAuthenticated != true)
+                        {
+                            <RedirectToLogin />
+                        }
+                        else
+                        {
+                            <Forbidden />
+                        }
+                    </NotAuthorized>
+                    <Authorizing>
+                        <LoadingSpinner Message="Checking authentication..." />
+                    </Authorizing>
+                </AuthorizeRouteView>
+                <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+            </Found>
+        </Router>
+    </CascadingAuthenticationState>
+</GlobalErrorBoundary>
+
+<ToastContainer />
+
+@code {
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+        Analytics.TrackPageView(Navigation.ToBaseRelativePath(Navigation.Uri));
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        Analytics.TrackPageView(Navigation.ToBaseRelativePath(e.Location));
+    }
+
+    public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
+}

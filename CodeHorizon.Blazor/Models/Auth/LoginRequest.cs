@@ -1,14 +1,7 @@
-﻿using System.ComponentModel.DataAnnotations;
+namespace CodeHorizon.Blazor.Models.Auth;
 
-namespace CodeHorizon.Blazor.Models.Auth
+public class LoginRequest
 {
-    public class LoginRequest
-    {
-        [Required]
-        [EmailAddress]
-        public string Email { get; set; } = string.Empty;
-
-        [Required]
-        public string Password { get; set; } = string.Empty;
-    }
+    public string Email { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
 }

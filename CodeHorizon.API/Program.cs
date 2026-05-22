@@ -90,6 +90,20 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("BlazorWasm", policy =>
+    {
+        policy.WithOrigins(
+                "https://localhost:7225",
+                "http://localhost:5100",
+                "http://localhost:5000",
+                "https://localhost:5001")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -102,6 +116,7 @@ if (app.Environment.IsDevelopment())
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
 app.UseHttpsRedirection();
+app.UseCors("BlazorWasm");
 app.UseAuthentication();
 app.UseAuthorization();
 //add after app.UseAuthorization()
