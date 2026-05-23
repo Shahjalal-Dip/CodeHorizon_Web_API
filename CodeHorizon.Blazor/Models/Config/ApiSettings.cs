@@ -1,6 +1,5 @@
 namespace CodeHorizon.Blazor.Models.Config;
 
-/// <summary>Application configuration bound from appsettings.</summary>
 public class ApiSettings
 {
     public const string SectionName = "Api";

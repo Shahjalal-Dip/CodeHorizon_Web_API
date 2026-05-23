@@ -1,59 +1,39 @@
-﻿using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.JSInterop;
 using System.Security.Claims;
+using CodeHorizon.Blazor.Helpers;
+using CodeHorizon.Blazor.Services;
+using CodeHorizon.Blazor.Utils;
+using Microsoft.AspNetCore.Components.Authorization;
 
-namespace CodeHorizon.Blazor.Providers
+namespace CodeHorizon.Blazor.Providers;
+
+public class CustomAuthStateProvider(ILocalStorageService storage) : AuthenticationStateProvider
 {
-    public class CustomAuthStateProvider : AuthenticationStateProvider
+    private static readonly AuthenticationState Anonymous =
+        new(new ClaimsPrincipal(new ClaimsIdentity()));
+
+    public override async Task<AuthenticationState> GetAuthenticationStateAsync()
     {
-        private readonly ILocalStorageService _localStorage;
-        private readonly HttpClient _httpClient;
+        var token = await storage.GetItemAsync<string>(LocalStorageKeys.AuthToken);
+        if (string.IsNullOrWhiteSpace(token) || JwtHelper.IsExpired(token))
+            return Anonymous;
 
-        public CustomAuthStateProvider(ILocalStorageService localStorage, HttpClient httpClient)
-        {
-            _localStorage = localStorage;
-            _httpClient = httpClient;
-        }
+        var principal = JwtHelper.ParseClaims(token);
+        if (principal is null)
+            return Anonymous;
 
-        public override async Task<AuthenticationState> GetAuthenticationStateAsync()
-        {
-            var token = await _localStorage.GetItemAsync<string>("authToken");
+        return new AuthenticationState(principal);
+    }
 
-            if(string.IsNullOrEmpty(token))
-            {
-                return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
-            }
+    public async Task MarkUserAsAuthenticated(string token)
+    {
+        var principal = JwtHelper.ParseClaims(token) ?? new ClaimsPrincipal();
+        NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(principal)));
+        await Task.CompletedTask;
+    }
 
-            _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-
-            var claims = ParseToken(token);
-            var identity = new ClaimsIdentity(claims, "jwt");
-            var user = new ClaimsPrincipal(identity);
-
-            return new AuthenticationState(user);
-        }
-
-        public void MarkUserAsAuthenticated(string token)
-        {
-            var claims = ParseToken(token);
-            var identity = new ClaimsIdentity(claims, "jwt");
-            var user = new ClaimsPrincipal(identity);
-
-            NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(user)));
-        }
-
-        public void MarkUserAsLoggedOut()
-        {
-            _httpClient.DefaultRequestHeaders.Authorization = null;
-            NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()))));
-        }
-
-        private IEnumerable<Claim> ParseToken(string token)
-        {
-            var handler = new JwtSecurityTokenHandler();
-            var jwtToken = handler.ReadJwtToken(token);
-
-            return jwtToken.Claims;
-        }
+    public Task MarkUserAsLoggedOut()
+    {
+        NotifyAuthenticationStateChanged(Task.FromResult(Anonymous));
+        return Task.CompletedTask;
     }
 }
