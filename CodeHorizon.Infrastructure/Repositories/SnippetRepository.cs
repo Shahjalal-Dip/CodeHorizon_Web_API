@@ -167,7 +167,8 @@ namespace CodeHorizon.Infrastructure.Repositories
                 query = query.Where(s =>
                     s.Title.Contains(filterDto.Search) ||
                     s.Description.Contains(filterDto.Search) ||
-                    s.Content.Contains(filterDto.Search));
+                    s.Content.Contains(filterDto.Search) ||
+                    s.Author.Username.Contains(filterDto.Search));       
             }
 
             if(!string.IsNullOrEmpty(filterDto.Tag))

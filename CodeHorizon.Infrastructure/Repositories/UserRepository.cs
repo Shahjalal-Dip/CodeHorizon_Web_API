@@ -90,8 +90,8 @@ namespace CodeHorizon.Infrastructure.Repositories
                     ProfilePictureUrl = u.ProfilePictureUrl,
                     CreatedAt = u.CreatedAt,
                     IsActive = u.IsActive,
-                    Snippets = u.Snippets.Take(5).ToList(),
-                    Bookmarks = u.Bookmarks.Take(5).ToList()
+                    Snippets = u.Snippets.ToList(),
+                    Bookmarks = u.Bookmarks.ToList()
 
                 })
                 .FirstOrDefaultAsync();
