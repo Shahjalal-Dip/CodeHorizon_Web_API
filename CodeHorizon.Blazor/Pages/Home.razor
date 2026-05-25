@@ -1,7 +1,107 @@
 ﻿@page "/"
+@inject ISnippetService Snippets
+@inject ITagService Tags
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Code Horizon - Developer Snippet Platform</PageTitle>
 
-<h1>Hello, world!</h1>
+<section class="hero-section text-center py-5 mb-5">
+    <h1 class="display-4 fw-bold">Share code. Learn faster.</h1>
+    <p class="lead text-muted col-lg-8 mx-auto">Code Horizon is where developers publish snippets, explore solutions, and bookmark favorites.</p>
+    <div class="d-flex justify-content-center gap-2 flex-wrap mt-4">
+        <a class="btn btn-primary btn-lg" href="/browse">Browse snippets</a>
+        <a class="btn btn-outline-primary btn-lg" href="/register">Get started</a>
+    </div>
+    <form class="row justify-content-center mt-4 g-2" role="search" @onsubmit="Search" @onsubmit:preventDefault="true">
+        <div class="col-md-6">
+            <input class="form-control form-control-lg" placeholder="Search snippets, tags, languages..." @bind="_search" aria-label="Search" />
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-lg btn-primary" type="submit">Search</button>
+        </div>
+    </form>
+</section>
 
-Welcome to your new app.
+@if (_loading)
+{
+    <div class="row row-cols-1 row-cols-md-3 g-4">
+        @for (var i = 0; i < 3; i++) { <div class="col"><LoadingSkeleton /></div> }
+    </div>
+}
+else
+{
+    <section class="mb-5">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="h4 mb-0">Featured snippets</h2>
+            <a href="/browse?sortBy=views&sortOrder=desc">View all</a>
+        </div>
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+            @foreach (var snippet in _featured)
+            {
+                <div class="col"><SnippetCard Snippet="snippet" /></div>
+            }
+        </div>
+    </section>
+
+    <section class="mb-5">
+        <h2 class="h4 mb-3">Popular tags</h2>
+        <div class="d-flex flex-wrap gap-2">
+            @foreach (var tag in _tags.Take(12))
+            {
+                <TagChip Name="@tag.Name" />
+            }
+        </div>
+    </section>
+
+    <section>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="h4 mb-0">Recent snippets</h2>
+            <a href="/browse">Explore</a>
+        </div>
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+            @foreach (var snippet in _recent)
+            {
+                <div class="col"><SnippetCard Snippet="snippet" /></div>
+            }
+        </div>
+    </section>
+}
+
+@code {
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private bool _loading = true;
+    private string _search = string.Empty;
+    private List<SnippetResponse> _featured = [];
+    private List<SnippetResponse> _recent = [];
+    private List<TagResponse> _tags = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var featuredTask = Snippets.GetPublicAsync(new SnippetFilter { Page = 1, PageSize = 6, SortBy = "views", SortOrder = "desc" });
+            var recentTask = Snippets.GetPublicAsync(new SnippetFilter { Page = 1, PageSize = 6, SortBy = "created", SortOrder = "desc" });
+            var tagsTask = Tags.GetAllAsync();
+
+            await Task.WhenAll(featuredTask, recentTask, tagsTask);
+            _featured = (await featuredTask).Data;
+            _recent = (await recentTask).Data;
+            _tags = await tagsTask;
+        }
+        catch (ApiException ex)
+        {
+            // Home can render with empty state
+            Console.WriteLine(ex.Message);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void Search()
+    {
+        if (!string.IsNullOrWhiteSpace(_search))
+            Navigation.NavigateTo($"/browse?search={Uri.EscapeDataString(_search)}");
+    }
+}
