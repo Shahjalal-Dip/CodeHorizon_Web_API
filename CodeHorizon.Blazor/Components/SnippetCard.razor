@@ -1,0 +1,48 @@
+@using CodeHorizon.Blazor.Models.Snippets
+
+<article class="snippet-card card h-100 shadow-sm">
+    <div class="card-body d-flex flex-column">
+        <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+            <h3 class="h6 card-title mb-0">
+                <a href="/snippets/@Snippet.Id" class="stretched-link text-decoration-none">@Snippet.Title</a>
+            </h3>
+            <LanguageBadge Language="@Snippet.Language" />
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Snippet.Description))
+        {
+            <p class="card-text text-muted small flex-grow-0">@Snippet.Description</p>
+        }
+        <pre class="code-preview small mb-3" aria-label="Code preview"><code>@Snippet.CodePreview</code></pre>
+        <div class="d-flex flex-wrap gap-1 mb-2">
+            @foreach (var tag in Snippet.Tags.Take(3))
+            {
+                <TagChip Name="@tag" />
+            }
+        </div>
+        <div class="card-footer-meta mt-auto d-flex justify-content-between align-items-center small text-muted">
+            <span>
+                <AvatarComponent DisplayName="@Snippet.AuthorFullName" Size="sm" />
+                <a href="/users/@Snippet.AuthorUsername" class="ms-1 text-decoration-none" @onclick:stopPropagation="true">@Snippet.AuthorUsername</a>
+            </span>
+            <span aria-label="Views and bookmarks">
+                <i class="bi bi-eye" aria-hidden="true"></i> @Snippet.ViewCount
+                <i class="bi bi-bookmark ms-2" aria-hidden="true"></i> @Snippet.BookmarkCount
+            </span>
+        </div>
+        @if (ShowActions)
+        {
+            <div class="mt-3 d-flex gap-2 position-relative" style="z-index: 2">
+                <a class="btn btn-sm btn-outline-primary" href="/snippets/edit/@Snippet.Id">Edit</a>
+                <button class="btn btn-sm btn-outline-danger" @onclick="OnDeleteRequested">Delete</button>
+            </div>
+        }
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired] public SnippetResponse Snippet { get; set; } = default!;
+    [Parameter] public bool ShowActions { get; set; }
+    [Parameter] public EventCallback<SnippetResponse> OnDelete { get; set; }
+
+    private Task OnDeleteRequested() => OnDelete.InvokeAsync(Snippet);
+}

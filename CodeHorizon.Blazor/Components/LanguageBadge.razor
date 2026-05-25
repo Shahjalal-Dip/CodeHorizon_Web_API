@@ -1,0 +1,6 @@
+<span class="badge language-badge @CssClass" aria-label="Language: @Language">@Language</span>
+
+@code {
+    [Parameter, EditorRequired] public string Language { get; set; } = string.Empty;
+    [Parameter] public string? CssClass { get; set; }
+}

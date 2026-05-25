@@ -1,0 +1,49 @@
+@inject IToastService ToastService
+@implements IDisposable
+
+<div class="toast-container position-fixed bottom-0 end-0 p-3" aria-live="polite" aria-atomic="true">
+    @foreach (var toast in _toasts)
+    {
+        <div class="toast show @GetToastClass(toast.Message.Type)" role="alert">
+            <div class="toast-body d-flex justify-content-between align-items-center gap-2">
+                <span>@toast.Message.Message</span>
+                <button type="button" class="btn-close btn-close-white" aria-label="Dismiss" @onclick="() => Dismiss(toast.Id)"></button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private readonly List<ToastItem> _toasts = [];
+
+    protected override void OnInitialized() => ToastService.OnShow += ShowToast;
+
+    private void ShowToast(ToastMessage message)
+    {
+        var item = new ToastItem(Guid.NewGuid(), message);
+        _toasts.Add(item);
+        _ = AutoDismissAsync(item);
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task AutoDismissAsync(ToastItem item)
+    {
+        await Task.Delay(item.Message.DurationMs);
+        Dismiss(item.Id);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void Dismiss(Guid id) => _toasts.RemoveAll(t => t.Id == id);
+
+    private static string GetToastClass(ToastType type) => type switch
+    {
+        ToastType.Success => "bg-success text-white",
+        ToastType.Error => "bg-danger text-white",
+        ToastType.Warning => "bg-warning",
+        _ => "bg-primary text-white"
+    };
+
+    public void Dispose() => ToastService.OnShow -= ShowToast;
+
+    private record ToastItem(Guid Id, ToastMessage Message);
+}

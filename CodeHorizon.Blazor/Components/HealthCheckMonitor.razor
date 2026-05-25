@@ -1,0 +1,73 @@
+@implements IDisposable
+@inject IApiClient Api
+@inject IConnectivityService ConnectivityService
+@inject IOptions<FeatureFlags> Features
+@using CodeHorizon.Blazor.Models.Config
+@using Microsoft.Extensions.Options
+
+@if (Features.Value.EnableHealthMonitor)
+{
+    <div class="health-monitor small" role="status" aria-live="polite">
+        <span class="health-dot @StatusClass" aria-hidden="true"></span>
+        <span>API: @_statusText</span>
+        @if (_lastChecked.HasValue)
+        {
+            <span class="text-muted ms-1">(@_lastChecked.Value.ToLocalTime().ToString("HH:mm:ss"))</span>
+        }
+    </div>
+}
+
+@code {
+    private string _statusText = "Checking...";
+    private string StatusClass => _statusText switch
+    {
+        "Healthy" => "health-ok",
+        "Degraded" => "health-warn",
+        _ => "health-error"
+    };
+
+    private DateTime? _lastChecked;
+    private PeriodicTimer? _timer;
+    private CancellationTokenSource? _cts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Features.Value.EnableHealthMonitor)
+            return;
+
+        _cts = new CancellationTokenSource();
+        _timer = new PeriodicTimer(TimeSpan.FromSeconds(60));
+        await CheckHealthAsync();
+        _ = PollAsync(_cts.Token);
+    }
+
+    private async Task PollAsync(CancellationToken ct)
+    {
+        if (_timer is null) return;
+        while (await _timer.WaitForNextTickAsync(ct))
+            await CheckHealthAsync();
+    }
+
+    private async Task CheckHealthAsync()
+    {
+        try
+        {
+            await Api.GetAsync<List<TagResponse>>("tags");
+            _statusText = "Healthy";
+        }
+        catch
+        {
+            _statusText = ConnectivityService.IsOnline ? "Degraded" : "Offline";
+        }
+
+        _lastChecked = DateTime.UtcNow;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _timer?.Dispose();
+        _cts?.Dispose();
+    }
+}

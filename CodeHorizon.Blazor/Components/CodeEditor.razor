@@ -1,0 +1,49 @@
+<div class="code-editor">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <label class="form-label mb-0" for="@EditorId">@Label</label>
+        @if (ShowPreview)
+        {
+            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="TogglePreview">
+                @(PreviewMode ? "Edit" : "Preview")
+            </button>
+        }
+    </div>
+    @if (!PreviewMode)
+    {
+        <textarea id="@EditorId"
+                  class="form-control font-monospace code-textarea"
+                  rows="@Rows"
+                  value="@Content"
+                  @oninput="OnContentChanged"
+                  placeholder="@Placeholder"
+                  aria-describedby="@($"{EditorId}-hint")"></textarea>
+        <div id="@($"{EditorId}-hint")" class="form-text">@Hint</div>
+    }
+    else
+    {
+        <pre class="preview-block"><code class="@LanguageClass">@Content</code></pre>
+    }
+</div>
+
+@code {
+    [Parameter] public string Label { get; set; } = "Code";
+    [Parameter] public string Content { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> ContentChanged { get; set; }
+    [Parameter] public string Language { get; set; } = "csharp";
+    [Parameter] public int Rows { get; set; } = 12;
+    [Parameter] public string Placeholder { get; set; } = "Paste your code here...";
+    [Parameter] public string Hint { get; set; } = "Minimum 10 characters.";
+    [Parameter] public bool ShowPreview { get; set; } = true;
+
+    private string EditorId { get; } = $"editor-{Guid.NewGuid():N}";
+    private bool PreviewMode { get; set; }
+    private string LanguageClass => LanguageHelper.ToPrismClass(Language);
+
+    private async Task OnContentChanged(ChangeEventArgs e)
+    {
+        Content = e.Value?.ToString() ?? string.Empty;
+        await ContentChanged.InvokeAsync(Content);
+    }
+
+    private void TogglePreview() => PreviewMode = !PreviewMode;
+}

@@ -1,0 +1,70 @@
+@using CodeHorizon.Blazor.Models.Snippets
+
+<aside class="filter-sidebar" aria-label="Snippet filters">
+    <div class="mb-3">
+        <label class="form-label" for="searchFilter">Search</label>
+        <input id="searchFilter" class="form-control" @bind="Filter.Search" @bind:event="oninput" placeholder="Search snippets..." />
+    </div>
+    <div class="mb-3">
+        <label class="form-label" for="languageFilter">Language</label>
+        <select id="languageFilter" class="form-select" @bind="Filter.Language">
+            <option value="">All languages</option>
+            @foreach (var lang in LanguageHelper.SupportedLanguages)
+            {
+                <option value="@lang">@lang</option>
+            }
+        </select>
+    </div>
+    <div class="mb-3">
+        <label class="form-label" for="tagFilter">Tag</label>
+        <input id="tagFilter" class="form-control" @bind="Filter.Tag" placeholder="e.g. csharp" list="tagSuggestions" />
+        <datalist id="tagSuggestions">
+            @foreach (var tag in PopularTags)
+            {
+                <option value="@tag.Name" />
+            }
+        </datalist>
+    </div>
+    <div class="mb-3">
+        <label class="form-label" for="sortFilter">Sort by</label>
+        <select id="sortFilter" class="form-select" @bind="SortSelection">
+            <option value="created-desc">Newest</option>
+            <option value="views-desc">Most viewed</option>
+            <option value="bookmarks-desc">Most bookmarked</option>
+            <option value="created-asc">Oldest</option>
+        </select>
+    </div>
+    <div class="d-grid gap-2">
+        <button class="btn btn-primary" @onclick="ApplyFilters">Apply filters</button>
+        <button class="btn btn-outline-secondary" @onclick="ClearFilters">Clear</button>
+    </div>
+</aside>
+
+@code {
+    [Parameter, EditorRequired] public SnippetFilter Filter { get; set; } = new();
+    [Parameter] public List<TagResponse> PopularTags { get; set; } = [];
+    [Parameter] public EventCallback<SnippetFilter> OnFilterChanged { get; set; }
+
+    private string SortSelection
+    {
+        get => $"{Filter.SortBy}-{Filter.SortOrder}";
+        set
+        {
+            var parts = value.Split('-');
+            Filter.SortBy = parts[0];
+            Filter.SortOrder = parts.Length > 1 ? parts[1] : "desc";
+        }
+    }
+
+    private Task ApplyFilters() => OnFilterChanged.InvokeAsync(Filter);
+
+    private async Task ClearFilters()
+    {
+        Filter.Search = null;
+        Filter.Language = null;
+        Filter.Tag = null;
+        Filter.SortBy = "created";
+        Filter.SortOrder = "desc";
+        await OnFilterChanged.InvokeAsync(Filter);
+    }
+}

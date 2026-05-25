@@ -1,0 +1,47 @@
+@if (TotalPages > 1)
+{
+    <nav aria-label="Pagination navigation" class="mt-4">
+        <ul class="pagination justify-content-center flex-wrap">
+            <li class="page-item @(CurrentPage <= 1 ? "disabled" : "")">
+                <button class="page-link" @onclick="() => ChangePage(CurrentPage - 1)" disabled="@(CurrentPage <= 1)" aria-label="Previous page">Previous</button>
+            </li>
+            @foreach (var pageNum in VisiblePages)
+            {
+                <li class="page-item @(pageNum == CurrentPage ? "active" : "")">
+                    <button class="page-link" @onclick="() => ChangePage(pageNum)" aria-label="Page @pageNum" aria-current="@GetAriaCurrent(pageNum)">@pageNum</button>
+                </li>
+            }
+            <li class="page-item @(CurrentPage >= TotalPages ? "disabled" : "")">
+                <button class="page-link" @onclick="() => ChangePage(CurrentPage + 1)" disabled="@(CurrentPage >= TotalPages)" aria-label="Next page">Next</button>
+            </li>
+        </ul>
+    </nav>
+}
+
+@code {
+    [Parameter] public int CurrentPage { get; set; } = 1;
+    [Parameter] public int TotalCount { get; set; }
+    [Parameter] public int PageSize { get; set; } = 12;
+    [Parameter] public EventCallback<int> OnPageChanged { get; set; }
+
+    private int TotalPages => Math.Max(1, (int)Math.Ceiling(TotalCount / (double)PageSize));
+
+    private IEnumerable<int> VisiblePages
+    {
+        get
+        {
+            var start = Math.Max(1, CurrentPage - 2);
+            var end = Math.Min(TotalPages, CurrentPage + 2);
+            return Enumerable.Range(start, end - start + 1);
+        }
+    }
+
+    private async Task ChangePage(int page)
+    {
+        if (page < 1 || page > TotalPages || page == CurrentPage)
+            return;
+        await OnPageChanged.InvokeAsync(page);
+    }
+
+    private string? GetAriaCurrent(int pageNum) => pageNum == CurrentPage ? "page" : null;
+}

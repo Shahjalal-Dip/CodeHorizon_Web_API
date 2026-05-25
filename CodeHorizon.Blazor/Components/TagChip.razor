@@ -1,0 +1,8 @@
+<a class="tag-chip @CssClass" href="@Href" aria-label="View snippets tagged @Name">#@Name</a>
+
+@code {
+    [Parameter, EditorRequired] public string Name { get; set; } = string.Empty;
+    [Parameter] public string? CssClass { get; set; }
+
+    private string Href => $"/tags/{Uri.EscapeDataString(Name)}";
+}
