@@ -1,0 +1,109 @@
+@page "/dashboard"
+@attribute [Authorize]
+@inject IUserService Users
+@inject ISnippetService Snippets
+@inject IBookmarkService Bookmarks
+@inject IToastService Toast
+
+<PageTitle>Dashboard - Code Horizon</PageTitle>
+
+<h1 class="h2 mb-4">Dashboard</h1>
+
+@if (_loading)
+{
+    <LoadingSpinner />
+}
+else
+{
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="stat-card card">
+                <div class="card-body">
+                    <div class="stat-label">My snippets</div>
+                    <div class="stat-value">@(_profile?.SnippetsCount ?? 0)</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card card">
+                <div class="card-body">
+                    <div class="stat-label">Bookmarks</div>
+                    <div class="stat-value">@(_profile?.BookmarksCount ?? 0)</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card card">
+                <div class="card-body">
+                    <div class="stat-label">Member since</div>
+                    <div class="stat-value h5">@(_profile?.CreatedAt.ToString("MMM yyyy") ?? "-")</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <h2 class="h5">Recent snippets</h2>
+            @if (_recentSnippets.Any())
+            {
+                <div class="d-flex flex-column gap-3">
+                    @foreach (var s in _recentSnippets)
+                    {
+                        <SnippetCard Snippet="s" />
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="text-muted">No snippets yet. <a href="/snippets/create">Create one</a></p>
+            }
+        </div>
+        <div class="col-lg-6">
+            <h2 class="h5">Recent bookmarks</h2>
+            @if (_recentBookmarks.Any())
+            {
+                <ul class="list-group">
+                    @foreach (var b in _recentBookmarks)
+                    {
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <a href="/snippets/@b.SnippetId">@b.SnippetTitle</a>
+                            <LanguageBadge Language="@b.SnippetLanguage" />
+                        </li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p class="text-muted">No bookmarks yet.</p>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private UserProfileResponse? _profile;
+    private List<SnippetResponse> _recentSnippets = [];
+    private List<BookmarkResponse> _recentBookmarks = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _profile = await Users.GetMyProfileAsync();
+            var snippets = await Snippets.GetMySnippetsAsync(new SnippetFilter { Page = 1, PageSize = 3 });
+            _recentSnippets = snippets.Data;
+            var bookmarks = await Bookmarks.GetMyBookmarksAsync(1, 5);
+            _recentBookmarks = bookmarks.Data;
+        }
+        catch (ApiException ex)
+        {
+            Toast.ShowError(ex.Message);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

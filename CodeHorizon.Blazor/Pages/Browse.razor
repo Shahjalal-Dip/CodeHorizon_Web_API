@@ -1,0 +1,126 @@
+@page "/browse"
+@inject ISnippetService Snippets
+@inject ITagService Tags
+@inject IToastService Toast
+
+<PageTitle>Browse Snippets - Code Horizon</PageTitle>
+
+<h1 class="h2 mb-4">Browse snippets</h1>
+
+<div class="row g-4">
+    <div class="col-lg-3">
+        <button class="btn btn-outline-primary d-lg-none w-100 mb-3" @onclick="() => _showFilters = !_showFilters">
+            @(_showFilters ? "Hide" : "Show") filters
+        </button>
+        <div class="@(_showFilters ? "d-block" : "d-none d-lg-block")">
+            <FilterSidebar Filter="_filter" PopularTags="_tags" OnFilterChanged="ApplyFilter" />
+        </div>
+    </div>
+    <div class="col-lg-9">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <p class="text-muted mb-0">@_totalCount snippets found</p>
+            <div class="btn-group" role="group" aria-label="View mode">
+                <button class="btn btn-sm @(_gridView ? "btn-primary" : "btn-outline-primary")" @onclick="() => _gridView = true">Grid</button>
+                <button class="btn btn-sm @(!_gridView ? "btn-primary" : "btn-outline-primary")" @onclick="() => _gridView = false">List</button>
+            </div>
+        </div>
+
+        @if (_loading)
+        {
+            <LoadingSpinner />
+        }
+        else if (!_snippets.Any())
+        {
+            <div class="alert alert-info">No snippets match your filters.</div>
+        }
+        else if (_gridView)
+        {
+            <div class="row row-cols-1 row-cols-md-2 g-4">
+                @foreach (var snippet in _snippets)
+                {
+                    <div class="col"><SnippetCard Snippet="snippet" /></div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="list-group">
+                @foreach (var snippet in _snippets)
+                {
+                    <a href="/snippets/@snippet.Id" class="list-group-item list-group-item-action">
+                        <div class="d-flex justify-content-between">
+                            <strong>@snippet.Title</strong>
+                            <LanguageBadge Language="@snippet.Language" />
+                        </div>
+                        <small class="text-muted">@snippet.AuthorUsername · @snippet.ViewCount views</small>
+                    </a>
+                }
+            </div>
+        }
+
+        <Pagination CurrentPage="_filter.Page" TotalCount="_totalCount" PageSize="_filter.PageSize" OnPageChanged="ChangePage" />
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? Search { get; set; }
+    [SupplyParameterFromQuery] public string? Tag { get; set; }
+    [SupplyParameterFromQuery] public string? Language { get; set; }
+    [SupplyParameterFromQuery] public string? SortBy { get; set; }
+    [SupplyParameterFromQuery] public string? SortOrder { get; set; }
+
+    private readonly SnippetFilter _filter = new() { PageSize = 12 };
+    private List<SnippetResponse> _snippets = [];
+    private List<TagResponse> _tags = [];
+    private int _totalCount;
+    private bool _loading = true;
+    private bool _gridView = true;
+    private bool _showFilters;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _filter.Search = Search;
+        _filter.Tag = Tag;
+        _filter.Language = Language;
+        if (!string.IsNullOrWhiteSpace(SortBy)) _filter.SortBy = SortBy;
+        if (!string.IsNullOrWhiteSpace(SortOrder)) _filter.SortOrder = SortOrder;
+        _tags = await Tags.GetAllAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            var result = await Snippets.GetPublicAsync(_filter);
+            _snippets = result.Data;
+            _totalCount = result.TotalCount;
+        }
+        catch (ApiException ex)
+        {
+            Toast.ShowError(ex.Message);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ApplyFilter(SnippetFilter filter)
+    {
+        filter.Page = 1;
+        _filter.Search = filter.Search;
+        _filter.Language = filter.Language;
+        _filter.Tag = filter.Tag;
+        _filter.SortBy = filter.SortBy;
+        _filter.SortOrder = filter.SortOrder;
+        await LoadAsync();
+    }
+
+    private async Task ChangePage(int page)
+    {
+        _filter.Page = page;
+        await LoadAsync();
+    }
+}

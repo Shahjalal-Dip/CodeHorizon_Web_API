@@ -1,0 +1,85 @@
+@page "/register"
+@inject IAuthService Auth
+@inject IToastService Toast
+@inject NavigationManager Navigation
+@attribute [AllowAnonymous]
+
+<PageTitle>Register - Code Horizon</PageTitle>
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <h1 class="h3 mb-4">Create account</h1>
+                <EditForm Model="_model" OnValidSubmit="HandleRegister">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="text-danger" />
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label" for="fullName">Full name</label>
+                            <InputText id="fullName" class="form-control" @bind-Value="_model.FullName" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="username">Username</label>
+                            <InputText id="username" class="form-control" @bind-Value="_model.Username" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="email">Email</label>
+                            <InputText id="email" class="form-control" @bind-Value="_model.Email" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="password">Password</label>
+                            <InputText id="password" type="password" class="form-control" @bind-Value="_model.Password" />
+                        </div>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(_error))
+                    {
+                        <div class="alert alert-danger mt-3">@_error</div>
+                    }
+                    <button class="btn btn-primary w-100 mt-3" disabled="@_busy">@(_busy ? "Creating..." : "Create account")</button>
+                </EditForm>
+                <p class="mt-3 mb-0 small text-center">Already have an account? <a href="/login">Sign in</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private readonly RegisterRequest _model = new();
+    private bool _busy;
+    private string? _error;
+
+    [Inject] private IValidator<RegisterRequest> Validator { get; set; } = default!;
+
+    private async Task HandleRegister()
+    {
+        _error = null;
+        var validation = await Validator.ValidateAsync(_model);
+        if (!validation.IsValid)
+        {
+            _error = string.Join(" ", validation.Errors.Select(e => e.ErrorMessage));
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var result = await Auth.RegisterAsync(_model);
+            if (result is null)
+            {
+                _error = "Registration failed.";
+                return;
+            }
+            Toast.ShowSuccess("Account created successfully!");
+            Navigation.NavigateTo("/dashboard");
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

@@ -1,0 +1,77 @@
+@page "/login"
+@inject IAuthService Auth
+@inject IToastService Toast
+@inject NavigationManager Navigation
+@attribute [AllowAnonymous]
+
+<PageTitle>Login - Code Horizon</PageTitle>
+
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <h1 class="h3 mb-4">Sign in</h1>
+                <EditForm Model="_model" OnValidSubmit="HandleLogin">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="text-danger" />
+                    <div class="mb-3">
+                        <label class="form-label" for="email">Email</label>
+                        <InputText id="email" class="form-control" @bind-Value="_model.Email" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="password">Password</label>
+                        <InputText id="password" type="password" class="form-control" @bind-Value="_model.Password" />
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(_error))
+                    {
+                        <div class="alert alert-danger">@_error</div>
+                    }
+                    <button class="btn btn-primary w-100" disabled="@_busy">@(_busy ? "Signing in..." : "Sign in")</button>
+                </EditForm>
+                <p class="mt-3 mb-0 small text-center">No account? <a href="/register">Register</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+
+    private readonly LoginRequest _model = new();
+    private bool _busy;
+    private string? _error;
+
+    [Inject] private IValidator<LoginRequest> Validator { get; set; } = default!;
+
+    private async Task HandleLogin()
+    {
+        _error = null;
+        var validation = await Validator.ValidateAsync(_model);
+        if (!validation.IsValid)
+        {
+            _error = string.Join(" ", validation.Errors.Select(e => e.ErrorMessage));
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var result = await Auth.LoginAsync(_model);
+            if (result is null)
+            {
+                _error = "Invalid email or password.";
+                return;
+            }
+            Toast.ShowSuccess($"Welcome back, {result.FullName}!");
+            Navigation.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "/dashboard" : ReturnUrl);
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}
