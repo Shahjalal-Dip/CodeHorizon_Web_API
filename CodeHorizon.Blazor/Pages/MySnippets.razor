@@ -1,0 +1,112 @@
+@page "/my-snippets"
+@attribute [Authorize]
+@inject ISnippetService Snippets
+@inject IToastService Toast
+
+<PageTitle>My Snippets - Code Horizon</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2 mb-0">My snippets</h1>
+    <a class="btn btn-primary" href="/snippets/create">New snippet</a>
+</div>
+
+<div class="mb-3">
+    <input class="form-control" placeholder="Search my snippets..." @bind="_search" @bind:event="oninput" @onkeyup="OnSearchKey" />
+</div>
+
+@if (_loading)
+{
+    <LoadingSpinner />
+}
+else
+{
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        @foreach (var snippet in _snippets)
+        {
+            <div class="col">
+                <SnippetCard Snippet="snippet" ShowActions="true" OnDelete="ConfirmDelete" />
+            </div>
+        }
+    </div>
+    <Pagination CurrentPage="_page" TotalCount="_total" PageSize="12" OnPageChanged="ChangePage" />
+}
+
+<ConfirmationDialog IsVisible="_showDelete"
+                    Title="Delete snippet"
+                    Message="This action cannot be undone."
+                    ConfirmText="Delete"
+                    OnConfirm="DeleteSnippet"
+                    OnCancel="() => _showDelete = false" />
+
+@code {
+    private List<SnippetResponse> _snippets = [];
+    private SnippetResponse? _toDelete;
+    private int _page = 1;
+    private int _total;
+    private string? _search;
+    private bool _loading = true;
+    private bool _showDelete;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            var result = await Snippets.GetMySnippetsAsync(new SnippetFilter
+            {
+                Page = _page,
+                PageSize = 12,
+                Search = _search
+            });
+            _snippets = result.Data;
+            _total = result.TotalCount;
+        }
+        catch (ApiException ex)
+        {
+            Toast.ShowError(ex.Message);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ChangePage(int page)
+    {
+        _page = page;
+        await LoadAsync();
+    }
+
+    private async Task OnSearchKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            _page = 1;
+            await LoadAsync();
+        }
+    }
+
+    private void ConfirmDelete(SnippetResponse snippet)
+    {
+        _toDelete = snippet;
+        _showDelete = true;
+    }
+
+    private async Task DeleteSnippet()
+    {
+        if (_toDelete is null) return;
+        try
+        {
+            await Snippets.DeleteAsync(_toDelete.Id);
+            Toast.ShowSuccess("Snippet deleted");
+            _showDelete = false;
+            await LoadAsync();
+        }
+        catch (ApiException ex)
+        {
+            Toast.ShowError(ex.Message);
+        }
+    }
+}

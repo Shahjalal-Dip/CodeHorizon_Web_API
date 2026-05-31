@@ -1,0 +1,37 @@
+@page "/analytics"
+@attribute [Authorize]
+@inject IAnalyticsService AnalyticsService
+
+<PageTitle>Analytics - Code Horizon</PageTitle>
+
+<h1 class="h2 mb-4">Page view analytics</h1>
+<p class="text-muted">Local session tracking for demonstration purposes.</p>
+
+<div class="card">
+    <div class="card-body">
+        @if (!AnalyticsService.GetRecentViews().Any())
+        {
+            <p class="mb-0 text-muted">No page views tracked yet. Navigate around the app to collect data.</p>
+        }
+        else
+        {
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th scope="col">Path</th>
+                        <th scope="col">Timestamp (UTC)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var view in AnalyticsService.GetRecentViews())
+                    {
+                        <tr>
+                            <td>@view.Path</td>
+                            <td>@view.Timestamp.ToString("u")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
