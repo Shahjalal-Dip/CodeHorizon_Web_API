@@ -1,0 +1,168 @@
+@page "/snippets/{Id:guid}"
+@inject ISnippetService Snippets
+@inject IBookmarkService Bookmarks
+@inject IToastService Toast
+@inject ClipboardInterop Clipboard
+@inject PrismInterop Prism
+@inject NavigationManager Navigation
+@attribute [AllowAnonymous]
+
+<PageTitle>@(_snippet?.Title ?? "Snippet") - Code Horizon</PageTitle>
+
+@if (_loading)
+{
+    <LoadingSpinner />
+}
+else if (_snippet is null)
+{
+    <div class="alert alert-warning">Snippet not found.</div>
+}
+else
+{
+    <article>
+        <header class="mb-4">
+            <div class="d-flex flex-wrap justify-content-between gap-3">
+                <div>
+                    <h1 class="h2">@_snippet.Title</h1>
+                    <p class="text-muted">@_snippet.Description</p>
+                </div>
+                <div class="d-flex gap-2 align-items-start flex-wrap">
+                    <LanguageBadge Language="@_snippet.Language" />
+                    <AuthorizeView>
+                        <Authorized>
+                            <button class="btn btn-sm @(_snippet.IsBookmarkedByCurrentUser ? "btn-warning" : "btn-outline-warning")"
+                                    @onclick="ToggleBookmark" aria-pressed="@_snippet.IsBookmarkedByCurrentUser">
+                                @(_snippet.IsBookmarkedByCurrentUser ? "Bookmarked" : "Bookmark")
+                            </button>
+                        </Authorized>
+                    </AuthorizeView>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="CopyCode">Copy code</button>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="ShareSnippet">Share</button>
+                </div>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+                @foreach (var tag in _snippet.Tags)
+                {
+                    <TagChip Name="@tag" />
+                }
+            </div>
+        </header>
+
+        <pre class="snippet-code-block mb-4" id="snippet-code"><code class="@LanguageHelper.ToPrismClass(_snippet.Language)">@_snippet.Content</code></pre>
+
+        <div class="row g-4">
+            <div class="col-md-8">
+                <div class="meta-card card">
+                    <div class="card-body small text-muted d-flex flex-wrap gap-4">
+                        <span><strong>Views:</strong> @_snippet.ViewCount</span>
+                        <span><strong>Bookmarks:</strong> @_snippet.BookmarkCount</span>
+                        <span><strong>Created:</strong> @_snippet.CreatedAt.ToString("MMM d, yyyy")</span>
+                        <span><strong>Visibility:</strong> @(_snippet.IsPublic ? "Public" : "Private")</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h2 class="h6">Author</h2>
+                        <div class="d-flex align-items-center gap-2">
+                            <AvatarComponent DisplayName="@_snippet.AuthorFullName" />
+                            <div>
+                                <a href="/users/@_snippet.AuthorUsername" class="fw-semibold text-decoration-none">@_snippet.AuthorFullName</a>
+                                <div class="small text-muted">@_snippet.AuthorUsername</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (_related.Any())
+        {
+            <section class="mt-5">
+                <h2 class="h5 mb-3">Related snippets</h2>
+                <div class="row row-cols-1 row-cols-md-2 g-4">
+                    @foreach (var s in _related)
+                    {
+                        <div class="col"><SnippetCard Snippet="s" /></div>
+                    }
+                </div>
+            </section>
+        }
+    </article>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private SnippetResponse? _snippet;
+    private List<SnippetResponse> _related = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_snippet is not null)
+            await Prism.HighlightAllAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _snippet = await Snippets.GetByIdAsync(Id);
+            if (_snippet?.Tags.FirstOrDefault() is { } tag)
+            {
+                var related = await Snippets.GetPublicAsync(new SnippetFilter { Tag = tag, Page = 1, PageSize = 4 });
+                _related = related.Data.Where(s => s.Id != Id).ToList();
+            }
+        }
+        catch (ApiException ex)
+        {
+            Toast.ShowError(ex.Message);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ToggleBookmark()
+    {
+        if (_snippet is null) return;
+        try
+        {
+            if (_snippet.IsBookmarkedByCurrentUser)
+            {
+                await Bookmarks.RemoveAsync(_snippet.Id);
+                _snippet.IsBookmarkedByCurrentUser = false;
+                Toast.ShowInfo("Bookmark removed");
+            }
+            else
+            {
+                await Bookmarks.AddAsync(_snippet.Id);
+                _snippet.IsBookmarkedByCurrentUser = true;
+                Toast.ShowSuccess("Snippet bookmarked");
+            }
+        }
+        catch (ApiException ex)
+        {
+            Toast.ShowError(ex.Message);
+        }
+    }
+
+    private async Task CopyCode()
+    {
+        if (_snippet is null) return;
+        await Clipboard.CopyAsync(_snippet.Content);
+        Toast.ShowSuccess("Code copied to clipboard");
+    }
+
+    private async Task ShareSnippet()
+    {
+        var url = Navigation.ToAbsoluteUri($"/snippets/{Id}").ToString();
+        await Clipboard.ShareAsync(_snippet?.Title ?? "Snippet", _snippet?.Description ?? "", url);
+    }
+}

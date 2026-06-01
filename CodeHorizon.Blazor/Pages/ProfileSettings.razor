@@ -1,0 +1,158 @@
+@page "/settings"
+@attribute [Authorize]
+@inject IUserService Users
+@inject IToastService Toast
+
+<PageTitle>Profile Settings - Code Horizon</PageTitle>
+
+<h1 class="h2 mb-4">Profile settings</h1>
+
+@if (_loading)
+{
+    <LoadingSpinner />
+}
+else
+{
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="h5">Update profile</h2>
+                    <EditForm Model="_profileModel" OnValidSubmit="SaveProfile">
+                        <div class="mb-3">
+                            <label class="form-label" for="fullName">Full name</label>
+                            <InputText id="fullName" class="form-control" @bind-Value="_profileModel.FullName" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="bio">Bio</label>
+                            <InputTextArea id="bio" class="form-control" rows="4" @bind-Value="_profileModel.Bio" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="avatar">Avatar URL</label>
+                            <InputText id="avatar" class="form-control" @bind-Value="_profileModel.ProfilePictureUrl" />
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(_profileError))
+                        {
+                            <div class="alert alert-danger">@_profileError</div>
+                        }
+                        <button class="btn btn-primary" disabled="@_savingProfile">Save profile</button>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="h5">Change password</h2>
+                    <EditForm Model="_passwordModel" OnValidSubmit="ChangePassword">
+                        <div class="mb-3">
+                            <label class="form-label" for="current">Current password</label>
+                            <InputText id="current" type="password" class="form-control" @bind-Value="_passwordModel.CurrentPassword" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="new">New password</label>
+                            <InputText id="new" type="password" class="form-control" @bind-Value="_passwordModel.NewPassword" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="confirm">Confirm password</label>
+                            <InputText id="confirm" type="password" class="form-control" @bind-Value="_passwordModel.ConfirmPassword" />
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(_passwordError))
+                        {
+                            <div class="alert alert-danger">@_passwordError</div>
+                        }
+                        <button class="btn btn-outline-primary" disabled="@_savingPassword">Update password</button>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private readonly UpdateProfileRequest _profileModel = new();
+    private ChangePasswordRequest _passwordModel = new();
+    private bool _loading = true;
+    private bool _savingProfile;
+    private bool _savingPassword;
+    private string? _profileError;
+    private string? _passwordError;
+
+    [Inject] private IValidator<UpdateProfileRequest> ProfileValidator { get; set; } = default!;
+    [Inject] private IValidator<ChangePasswordRequest> PasswordValidator { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var profile = await Users.GetMyProfileAsync();
+            if (profile is not null)
+            {
+                _profileModel.FullName = profile.FullName;
+                _profileModel.Bio = profile.Bio;
+                _profileModel.ProfilePictureUrl = profile.ProfilePictureUrl;
+            }
+        }
+        catch (ApiException ex)
+        {
+            Toast.ShowError(ex.Message);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SaveProfile()
+    {
+        _profileError = null;
+        var validation = await ProfileValidator.ValidateAsync(_profileModel);
+        if (!validation.IsValid)
+        {
+            _profileError = string.Join(" ", validation.Errors.Select(e => e.ErrorMessage));
+            return;
+        }
+
+        _savingProfile = true;
+        try
+        {
+            await Users.UpdateProfileAsync(_profileModel);
+            Toast.ShowSuccess("Profile updated");
+        }
+        catch (ApiException ex)
+        {
+            _profileError = ex.Message;
+        }
+        finally
+        {
+            _savingProfile = false;
+        }
+    }
+
+    private async Task ChangePassword()
+    {
+        _passwordError = null;
+        var validation = await PasswordValidator.ValidateAsync(_passwordModel);
+        if (!validation.IsValid)
+        {
+            _passwordError = string.Join(" ", validation.Errors.Select(e => e.ErrorMessage));
+            return;
+        }
+
+        _savingPassword = true;
+        try
+        {
+            await Users.ChangePasswordAsync(_passwordModel);
+            Toast.ShowSuccess("Password changed successfully");
+            _passwordModel = new ChangePasswordRequest();
+        }
+        catch (ApiException ex)
+        {
+            _passwordError = ex.Message;
+        }
+        finally
+        {
+            _savingPassword = false;
+        }
+    }
+}
