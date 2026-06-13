@@ -1,0 +1,42 @@
+@page "/tags"
+@inject ITagService TagApi
+@inject IToastService Toast
+
+<PageTitle>Tags - Code Horizon</PageTitle>
+
+<h1 class="h2 mb-4">Explore tags</h1>
+
+@if (_loading)
+{
+    <LoadingSpinner />
+}
+else
+{
+    <div class="d-flex flex-wrap gap-2">
+        @foreach (var tag in _tags)
+        {
+            <TagChip Name="@tag.Name" CssClass="tag-chip-lg" />
+        }
+    </div>
+}
+
+@code {
+    private List<TagResponse> _tags = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _tags = await TagApi.GetAllAsync();
+        }
+        catch (ApiException ex)
+        {
+            Toast.ShowError(ex.Message);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

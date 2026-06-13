@@ -1,0 +1,186 @@
+@page "/snippets/create"
+@page "/snippets/edit/{Id:guid}"
+@attribute [Authorize]
+@inject ISnippetService Snippets
+@inject ITagService Tags
+@inject IToastService Toast
+@inject NavigationManager Navigation
+
+<PageTitle>@(_isEdit ? "Edit" : "Create") Snippet - Code Horizon</PageTitle>
+
+<h1 class="h2 mb-4">@(_isEdit ? "Edit snippet" : "Create snippet")</h1>
+
+@if (_loading)
+{
+    <LoadingSpinner />
+}
+else
+{
+    <EditForm Model="_model" OnValidSubmit="Save">
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="mb-3">
+                    <label class="form-label" for="title">Title</label>
+                    <InputText id="title" class="form-control" @bind-Value="_model.Title" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="description">Description</label>
+                    <InputTextArea id="description" class="form-control" rows="3" @bind-Value="_model.Description" />
+                </div>
+                <CodeEditor Label="Code" @bind-Content="_model.Content" Language="@_model.Language" />
+                @if (!string.IsNullOrWhiteSpace(_validationError))
+                {
+                    <div class="alert alert-danger mt-3">@_validationError</div>
+                }
+            </div>
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label" for="language">Language</label>
+                            <InputSelect id="language" class="form-select" @bind-Value="_model.Language">
+                                @foreach (var lang in LanguageHelper.SupportedLanguages)
+                                {
+                                    <option value="@lang">@lang</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="form-check form-switch mb-3">
+                            <InputCheckbox id="isPublic" class="form-check-input" @bind-Value="_model.IsPublic" />
+                            <label class="form-check-label" for="isPublic">Public snippet</label>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="tags">Tags</label>
+                            <input id="tags" class="form-control" value="@_tagInput" @oninput="OnTagInput" placeholder="Type and press Enter" @onkeydown="OnTagKey" list="tagList" />
+                            <datalist id="tagList">
+                                @foreach (var t in _tagSuggestions)
+                                {
+                                    <option value="@t.Name" />
+                                }
+                            </datalist>
+                            <div class="d-flex flex-wrap gap-1 mt-2">
+                                @foreach (var tag in _model.Tags)
+                                {
+                                    <span class="badge bg-secondary">
+                                        #@tag
+                                        <button type="button" class="btn-close btn-close-white btn-sm ms-1" aria-label="Remove @tag" @onclick="() => RemoveTag(tag)"></button>
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                        <button class="btn btn-primary w-100" disabled="@_saving">@(_saving ? "Saving..." : "Save snippet")</button>
+                        <a class="btn btn-outline-secondary w-100 mt-2" href="/my-snippets">Cancel</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+
+    private readonly SnippetRequest _model = new();
+    private readonly Debouncer _debouncer = new();
+    private List<TagResponse> _tagSuggestions = [];
+    private string _tagInput = string.Empty;
+    private bool _isEdit;
+    private bool _loading;
+    private bool _saving;
+    private string? _validationError;
+
+    [Inject] private IValidator<SnippetRequest> Validator { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isEdit = Id.HasValue;
+        if (_isEdit && Id.HasValue)
+        {
+            _loading = true;
+            try
+            {
+                var snippet = await Snippets.GetByIdAsync(Id.Value);
+                if (snippet is not null)
+                {
+                    _model.Title = snippet.Title;
+                    _model.Content = snippet.Content;
+                    _model.Description = snippet.Description;
+                    _model.Language = snippet.Language;
+                    _model.IsPublic = snippet.IsPublic;
+                    _model.Tags = snippet.Tags;
+                }
+            }
+            catch (ApiException ex)
+            {
+                Toast.ShowError(ex.Message);
+            }
+            finally
+            {
+                _loading = false;
+            }
+        }
+    }
+
+    private async Task OnTagInput(ChangeEventArgs e)
+    {
+        _tagInput = e.Value?.ToString() ?? string.Empty;
+        await _debouncer.DebounceAsync(async () =>
+        {
+            _tagSuggestions = await Tags.SearchAsync(_tagInput);
+            await InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private void OnTagKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_tagInput))
+        {
+            var tag = _tagInput.Trim().ToLowerInvariant();
+            if (!_model.Tags.Contains(tag))
+                _model.Tags.Add(tag);
+            _tagInput = string.Empty;
+        }
+    }
+
+    private void RemoveTag(string tag) => _model.Tags.Remove(tag);
+
+    private async Task Save()
+    {
+        _validationError = null;
+        var validation = await Validator.ValidateAsync(_model);
+        if (!validation.IsValid)
+        {
+            _validationError = string.Join(" ", validation.Errors.Select(x => x.ErrorMessage));
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            if (_isEdit && Id.HasValue)
+            {
+                await Snippets.UpdateAsync(Id.Value, _model);
+                Toast.ShowSuccess("Snippet updated");
+            }
+            else
+            {
+                var created = await Snippets.CreateAsync(_model);
+                Toast.ShowSuccess("Snippet created");
+                if (created is not null)
+                {
+                    Navigation.NavigateTo($"/snippets/{created.Id}");
+                    return;
+                }
+            }
+            Navigation.NavigateTo("/my-snippets");
+        }
+        catch (ApiException ex)
+        {
+            _validationError = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}
